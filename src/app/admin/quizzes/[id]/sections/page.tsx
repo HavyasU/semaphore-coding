@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { CodeViewer } from "@/components/quiz/CodeViewer";
@@ -18,6 +18,9 @@ import {
   Loader2,
   X,
   FileText,
+  Upload,
+  FolderOpen,
+  Link as LinkIcon,
 } from "lucide-react";
 
 interface OptionItem {
@@ -80,6 +83,64 @@ export default function QuizSectionsAndQuestionsPage() {
     { text: "", isCorrect: false, orderIndex: 3 },
   ]);
   const [savingQuestion, setSavingQuestion] = useState(false);
+
+  // Image upload state
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (file: File) => {
+    setUploadingImage(true);
+    setUploadError(null);
+    // Show instant local preview using browser blob URL
+    const blobUrl = URL.createObjectURL(file);
+    setLocalPreviewUrl(blobUrl);
+    // Set a temporary placeholder so preview panel shows immediately
+    setQImageUrl("__uploading__");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed.");
+      // Replace placeholder with real server URL
+      setQImageUrl(data.url);
+    } catch (err: any) {
+      setUploadError(err.message || "Image upload failed.");
+      // Keep showing local preview even if upload failed
+      setQImageUrl("");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleImageUpload(file);
+      // Reset input so same file can be re-selected
+      e.target.value = "";
+    }
+  };
+
+  const handleImageDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleImageUpload(file);
+  };
+
+  const clearImage = () => {
+    setQImageUrl("");
+    setLocalPreviewUrl(null);
+    setUploadError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const fetchSections = async () => {
     try {
@@ -148,6 +209,9 @@ export default function QuizSectionsAndQuestionsPage() {
     setQCodeSnippet("");
     setQCodeLanguage("javascript");
     setQImageUrl("");
+    setUploadError(null);
+    setShowUrlInput(false);
+    setLocalPreviewUrl(null);
     setQOptions([
       { text: "", isCorrect: true, orderIndex: 0 },
       { text: "", isCorrect: false, orderIndex: 1 },
@@ -167,6 +231,9 @@ export default function QuizSectionsAndQuestionsPage() {
     setQCodeSnippet(question.codeSnippet || "");
     setQCodeLanguage(question.codeLanguage || "javascript");
     setQImageUrl(question.imageUrl || "");
+    setLocalPreviewUrl(question.imageUrl || null);
+    setUploadError(null);
+    setShowUrlInput(false);
     setQOptions(
       question.options.map((opt, i) => ({
         text: opt.text,
@@ -653,10 +720,12 @@ export default function QuizSectionsAndQuestionsPage() {
                       <option value="javascript">JavaScript</option>
                       <option value="typescript">TypeScript</option>
                       <option value="python">Python</option>
+                      <option value="pseudocode">Pseudocode</option>
                       <option value="sql">SQL / Postgres</option>
                       <option value="java">Java</option>
                       <option value="cpp">C++</option>
                       <option value="go">Go</option>
+                      <option value="c">C</option>
                     </select>
                   </div>
                   <textarea
@@ -669,20 +738,138 @@ export default function QuizSectionsAndQuestionsPage() {
                 </div>
               )}
 
-              {/* Image URL input if IMAGE type */}
+              {/* Image Upload if IMAGE type */}
               {qType === "IMAGE" && (
-                <div className="space-y-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center space-x-1">
-                    <ImageIcon className="w-3.5 h-3.5 text-cyan-500" />
-                    <span>Image / Diagram URL *</span>
-                  </label>
+                <div className="space-y-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-cyan-500" />
+                      <span>Question Image</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowUrlInput((v) => !v)}
+                      className="flex items-center space-x-1 text-[11px] font-semibold text-slate-500 hover:text-cyan-500 transition-colors"
+                    >
+                      <LinkIcon className="w-3 h-3" />
+                      <span>{showUrlInput ? "Hide URL" : "Paste URL instead"}</span>
+                    </button>
+                  </div>
+
+                  {/* Hidden file input */}
                   <input
-                    type="url"
-                    value={qImageUrl}
-                    onChange={(e) => setQImageUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileInputChange}
                   />
+
+                  {/* Drop zone — hide once image is selected or uploaded */}
+                  {!localPreviewUrl && !qImageUrl && (
+                    <div
+                      onDrop={handleImageDrop}
+                      onDragOver={(e) => e.preventDefault()}
+                      className="relative border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-cyan-500 dark:hover:border-cyan-500 rounded-2xl p-8 text-center cursor-pointer transition-colors group"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {uploadingImage ? (
+                        <div className="flex flex-col items-center space-y-2 text-cyan-500">
+                          <Loader2 className="w-8 h-8 animate-spin" />
+                          <span className="text-xs font-semibold">Uploading...</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center space-y-2 text-slate-400 group-hover:text-cyan-500 transition-colors">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-cyan-500/10">
+                            <Upload className="w-5 h-5" />
+                          </div>
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:text-cyan-600 dark:group-hover:text-cyan-400">
+                              Drop image here or{" "}
+                              <span className="text-cyan-600 dark:text-cyan-400 underline underline-offset-2">
+                                browse
+                              </span>
+                            </p>
+                            <p className="text-[11px] text-slate-400">PNG, JPG, GIF, WebP, SVG — max 5 MB</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Preview — shown immediately from local blob or from server URL */}
+                  {(localPreviewUrl || (qImageUrl && qImageUrl !== "__uploading__")) && (
+                    <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-950/30">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={localPreviewUrl || qImageUrl}
+                        alt="Uploaded preview"
+                        className="w-full max-h-52 object-contain bg-slate-100 dark:bg-slate-900"
+                      />
+                      {/* Upload progress overlay */}
+                      {uploadingImage && (
+                        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center space-y-2">
+                          <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+                          <span className="text-xs font-semibold text-white">Uploading to server...</span>
+                        </div>
+                      )}
+                      {/* Uploaded badge */}
+                      {!uploadingImage && qImageUrl && qImageUrl !== "__uploading__" && (
+                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-emerald-600/90 text-white text-[10px] font-bold backdrop-blur-sm">
+                          ✓ Saved
+                        </div>
+                      )}
+                      <div className="absolute top-2 right-2 flex space-x-1.5">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingImage}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-900/80 hover:bg-cyan-600 disabled:opacity-50 text-white text-[11px] font-bold flex items-center space-x-1 backdrop-blur-sm transition-colors"
+                        >
+                          <FolderOpen className="w-3 h-3" />
+                          <span>Change</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={clearImage}
+                          disabled={uploadingImage}
+                          className="p-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-600 disabled:opacity-50 text-white backdrop-blur-sm transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                      {/* Show URL only after confirmed upload */}
+                      {!uploadingImage && qImageUrl && qImageUrl !== "__uploading__" && (
+                        <div className="p-2 text-[10px] text-slate-400 font-mono truncate bg-slate-950/60">
+                          {qImageUrl}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Upload error */}
+                  {uploadError && (
+                    <div className="flex items-center space-x-2 text-rose-500 text-xs p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{uploadError}</span>
+                    </div>
+                  )}
+
+                  {/* Optional: manual URL input toggle */}
+                  {showUrlInput && (
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                        Or paste external URL
+                      </label>
+                      <input
+                        type="url"
+                        value={qImageUrl}
+                        onChange={(e) => setQImageUrl(e.target.value)}
+                        placeholder="https://example.com/image.png"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 

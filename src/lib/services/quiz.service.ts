@@ -78,6 +78,30 @@ export async function resolveActiveQuiz() {
   }
 }
 
+// Helper function to deterministically shuffle an array based on a seed string
+function shuffleArraySeeded<T>(array: T[], seedStr: string): T[] {
+  if (array.length <= 1) return array;
+
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+    hash |= 0;
+  }
+
+  let seed = Math.abs(hash) || 1;
+  const nextRandom = () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(nextRandom() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 export async function getActiveQuizForUser(userId: string) {
   const activeQuiz = await resolveActiveQuiz();
   if (!activeQuiz) return null;
@@ -96,29 +120,38 @@ export async function getActiveQuizForUser(userId: string) {
       },
     });
 
-    // Sanitize quiz: NEVER send isCorrect to client
+    const seedBase = `${activeQuiz.id}_${userId}`;
+
+    // Sanitize quiz: NEVER send isCorrect to client; shuffle options deterministically per user
     const sanitizedSections = activeQuiz.sections.map((section) => ({
       id: section.id,
       title: section.title,
       description: section.description,
       orderIndex: section.orderIndex,
       defaultMarks: section.defaultMarks,
-      questions: section.questions.map((q) => ({
-        id: q.id,
-        sectionId: q.sectionId,
-        type: q.type,
-        text: q.text,
-        codeSnippet: q.codeSnippet,
-        codeLanguage: q.codeLanguage,
-        imageUrl: q.imageUrl,
-        marks: q.marks,
-        orderIndex: q.orderIndex,
-        options: q.options.map((opt) => ({
+      questions: section.questions.map((q) => {
+        const rawOptions = q.options.map((opt) => ({
           id: opt.id,
           text: opt.text,
           orderIndex: opt.orderIndex,
-        })),
-      })),
+        }));
+
+        // Shuffle options randomly per user for this question
+        const shuffledOptions = shuffleArraySeeded(rawOptions, `${seedBase}_${q.id}`);
+
+        return {
+          id: q.id,
+          sectionId: q.sectionId,
+          type: q.type,
+          text: q.text,
+          codeSnippet: q.codeSnippet,
+          codeLanguage: q.codeLanguage,
+          imageUrl: q.imageUrl,
+          marks: q.marks,
+          orderIndex: q.orderIndex,
+          options: shuffledOptions,
+        };
+      }),
     }));
 
     const totalQuestions = sanitizedSections.reduce(

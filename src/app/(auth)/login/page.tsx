@@ -2,7 +2,6 @@
 
 import React, { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Layers,
   KeyRound,
@@ -16,7 +15,6 @@ import {
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 function LoginForm() {
-  const router = useRouter();
 
   const [passcode, setPasscode] = useState("");
   const [participantName, setParticipantName] = useState("");
@@ -46,8 +44,8 @@ function LoginForm() {
         throw new Error(data.error || "Passcode verification failed.");
       }
 
-      router.push("/");
-      router.refresh();
+      // Hard redirect so the server-side session cookie is read fresh
+      window.location.href = "/";
     } catch (err: any) {
       setError(err.message || "An error occurred during participant login.");
     } finally {

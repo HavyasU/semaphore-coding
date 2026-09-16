@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+
 import {
   Layers,
   ShieldCheck,
@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 
 export function AdminLoginForm() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -40,8 +39,8 @@ export function AdminLoginForm() {
         throw new Error("Access restricted. Administrator privileges required.");
       }
 
-      router.push("/admin");
-      router.refresh();
+      // Hard redirect so the server-side session cookie is read fresh
+      window.location.href = "/admin";
     } catch (err: any) {
       setError(err.message || "An error occurred during admin login.");
     } finally {

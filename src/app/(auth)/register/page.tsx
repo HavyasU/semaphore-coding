@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Layers, Lock, Mail, User, Users, ArrowRight, AlertCircle } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
@@ -12,7 +11,6 @@ interface Team {
 }
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,8 +48,8 @@ export default function RegisterPage() {
         throw new Error(data.error || "Failed to create account");
       }
 
-      router.push("/dashboard");
-      router.refresh();
+      // Hard redirect so the server-side session cookie is read fresh
+      window.location.href = "/";
     } catch (err: any) {
       setError(err.message || "An error occurred during registration.");
     } finally {

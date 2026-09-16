@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import {
@@ -42,7 +42,6 @@ interface ResultData {
 
 export default function QuizResultPage() {
   const params = useParams();
-  const router = useRouter();
   const attemptId = params.attemptId as string;
 
   const [loading, setLoading] = useState(true);
@@ -76,10 +75,11 @@ export default function QuizResultPage() {
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/login");
-      router.refresh();
+      // Hard redirect so server-side session cookie is re-read fresh in production
+      window.location.href = "/login";
     } catch (err) {
       console.error("Logout error", err);
+      window.location.href = "/login";
     }
   };
 

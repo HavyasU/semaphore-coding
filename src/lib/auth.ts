@@ -45,9 +45,13 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
 
 export async function setSessionCookie(token: string) {
   const cookieStore = await cookies();
+  // Use COOKIE_SECURE env var to control the Secure flag.
+  // Do NOT tie it to NODE_ENV — production builds served over HTTP (e.g. localhost)
+  // will silently drop cookies that have Secure:true, breaking all auth navigation.
+  const isSecure = process.env.COOKIE_SECURE === "true";
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecure,
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24, // 24 hours
