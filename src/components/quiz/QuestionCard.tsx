@@ -127,12 +127,24 @@ export function QuestionCard({
 
         {/* Image if applicable */}
         {question.type === "IMAGE" && question.imageUrl && (
-          <div className="my-4 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 max-h-96 flex items-center justify-center bg-slate-950/40">
+          <div className="my-4 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 flex items-center justify-center bg-slate-950/20 min-h-[120px]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={question.imageUrl}
               alt="Question illustration"
-              className="max-h-96 w-auto object-contain rounded-lg shadow"
+              className="max-h-96 w-full object-contain rounded-lg shadow"
+              crossOrigin="anonymous"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = "none";
+                const parent = target.parentElement;
+                if (parent && !parent.querySelector(".img-error-msg")) {
+                  const msg = document.createElement("div");
+                  msg.className = "img-error-msg flex flex-col items-center space-y-2 py-6 text-slate-400 text-xs";
+                  msg.innerHTML = `<span class="text-2xl">🖼️</span><span>Image could not be loaded</span>`;
+                  parent.appendChild(msg);
+                }
+              }}
             />
           </div>
         )}

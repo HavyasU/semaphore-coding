@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
 import {
   Layers,
@@ -29,17 +29,17 @@ interface NavbarProps {
 }
 
 export function Navbar({ user }: NavbarProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/login");
-      router.refresh();
+      // Hard redirect so server-side session cookie is re-read fresh in production
+      window.location.href = "/login";
     } catch (err) {
       console.error("Logout error", err);
+      window.location.href = "/login";
     }
   };
 

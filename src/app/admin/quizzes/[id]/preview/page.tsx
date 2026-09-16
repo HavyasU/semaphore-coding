@@ -195,12 +195,24 @@ export default function AdminQuizPreviewPage() {
                 )}
 
                 {q.type === "IMAGE" && q.imageUrl && (
-                  <div className="my-2 rounded-xl overflow-hidden max-h-72 border border-slate-200 dark:border-slate-800 flex items-center justify-center bg-slate-950/40">
+                  <div className="my-2 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 flex items-center justify-center bg-slate-950/20 min-h-[120px]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={q.imageUrl}
                       alt="Question illustration"
-                      className="max-h-72 w-auto object-contain rounded"
+                      className="max-h-72 w-full object-contain rounded"
+                      crossOrigin="anonymous"
+                      onError={(e) => {
+                        const t = e.currentTarget;
+                        t.style.display = "none";
+                        const p = t.parentElement;
+                        if (p && !p.querySelector(".img-error-msg")) {
+                          const d = document.createElement("div");
+                          d.className = "img-error-msg py-8 text-center text-slate-400 text-xs space-y-1";
+                          d.innerHTML = `<div class="text-2xl">🖼️</div><div>Image could not be loaded</div>`;
+                          p.appendChild(d);
+                        }
+                      }}
                     />
                   </div>
                 )}
